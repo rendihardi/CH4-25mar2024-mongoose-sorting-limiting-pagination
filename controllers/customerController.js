@@ -1,11 +1,6 @@
 const fs = require("fs");
 const Customer = require("./../models/customerModel");
 
-// read file json nya
-const customers = JSON.parse(
-  fs.readFileSync(`${__dirname}/../data/dummy.json`)
-);
-
 const getCustomers = async (req, res, next) => {
   try {
     // 1. Basic filter
@@ -15,40 +10,42 @@ const getCustomers = async (req, res, next) => {
 
     // 2. advanced query
     // {age : {$gte}}
-    let queryStr = JSON.stringify(req.query);
+    let queryStr = JSON.stringify(queryObject);
     queryStr = queryStr.replace(/\b(gte|gt|lte|lt)\b/g, (match) => `$${match}`); // => $gr, $gte,$lte
     queryStr = JSON.parse(queryStr);
     console.log(queryStr);
 
     let query = Customer.find(queryStr);
 
-    // 3. sorting
-    // sorting ascending = name , descending = -name
+    // // 3. sorting
+    // // sorting ascending = name , descending = -name
     if (req.query.sort) {
       const sortBy = req.query.sort.split(",").join(" ");
+      console.log(sortBy);
       query = query.sort(sortBy);
     } else {
       query = query.sort("-createdAt");
     }
 
-    // 4. field limiting
+    // // 4. field limiting
     if (req.query.fields) {
       const fields = req.query.fields.split(",").join(" ");
-      query = query.select(fields);
+      console.log(fields);
+      query.select(fields);
     } else {
       query = query.select("-__v");
     }
 
-    // 5. Pagination
-    const page = req.query.page * 1 || 1;
-    const limit = req.query.limit * 1 || 2;
-    const skip = (page - 1) * limit;
-    // page=3 & limit -2 => data  ke 5 dan 6
-    query = query.skip(skip).limit(limit);
-
+    // // 5. Pagination
     if (req.query.page) {
-      let numCustomers = await Customer.countDocuments();
-      if (skip > numCustomers) throw new Error("page doesn't exist");
+      const page = req.query.page * 1 || 1;
+      const limit = req.query.limit * 1 || 2;
+      const skip = (page - 1) * limit;
+      // page=3 & limit =2 => data  ke 5 dan 6
+      query = query.skip(skip).limit(limit);
+
+      let numPages = Math.ceil((await Customer.countDocuments()) / limit);
+      if (page > numPages) throw new Error("Page doesn't exist");
     }
 
     // eksekusi query
